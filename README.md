@@ -21,7 +21,6 @@ Card-by-card survey and swipe results.
 ## Running locally
 
 ```bash
-cd /Users/howardpeng/Documents/Project/apartment_hunting_assistant
 npm install
 npm run dev
 # open http://localhost:5173
