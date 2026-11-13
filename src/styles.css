@@ -69,8 +69,10 @@ input, select{padding:10px;border-radius:12px;border:1px solid var(--border);bac
 .pill-active{background:var(--text);color:#f8fafc}
 [data-theme='dark'] .pill-active{background:#3a3a3a;color:#f8fafc}
 .chips{list-style:none;padding:0;margin:8px 0 0 0;display:grid;gap:6px}
-.chip{display:flex;justify-content:space-between;align-items:center;background:var(--card-strong);border:1px solid var(--border);padding:10px;border-radius:14px}
+.chip{display:flex;justify-content:space-between;align-items:center;background:var(--card-strong);border:1px solid var(--border);padding:2px 4px 2px 12px;border-radius:14px}
 .chip-actions{display:flex;gap:4px}
+.reorder-btn{min-width:44px;min-height:44px;border-radius:10px;font-size:18px}
+.reorder-btn:hover{background:var(--card)}
 .link-btn{background:none;border:none;padding:0;color:var(--text);cursor:pointer;font-weight:600}
 .eyebrow{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px}
 .badge{background:var(--card-strong);color:var(--text);border-radius:12px;padding:6px 10px;font-size:12px;border:1px solid var(--border)}

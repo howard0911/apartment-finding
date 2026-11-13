@@ -444,8 +444,8 @@ function buildSteps(draft: UserPreferences, setDraft: (p: UserPreferences) => vo
               <div className="chip" key={p + idx}>
                 <span>{idx + 1}. {p}</span>
                 <div className="chip-actions">
-                  <button className="link-btn" onClick={() => swapAdditional(draft, setDraft, idx, -1)}>↑</button>
-                  <button className="link-btn" onClick={() => swapAdditional(draft, setDraft, idx, 1)}>↓</button>
+                  <button className="link-btn reorder-btn" aria-label={`Move ${p} up`} onClick={() => swapAdditional(draft, setDraft, idx, -1)}>↑</button>
+                  <button className="link-btn reorder-btn" aria-label={`Move ${p} down`} onClick={() => swapAdditional(draft, setDraft, idx, 1)}>↓</button>
                 </div>
               </div>
             ))}
