@@ -39,7 +39,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display'
 .card-body{margin-top:12px}
 .search-bar{display:flex;gap:8px;align-items:center;width:100%}
 .search-input{flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--card-strong);color:var(--text)}
-.button{background:var(--text);color:#f8fafc;padding:10px 16px;border-radius:12px;border:none;cursor:pointer;font-weight:700}
+.button{background:var(--text);color:var(--card);padding:10px 16px;border-radius:12px;border:none;cursor:pointer;font-weight:700}
 .secondary{background:var(--card-strong);color:var(--text);border:1px solid var(--border);padding:10px 12px;border-radius:12px;cursor:pointer}
 .ghost{background:var(--card-strong);color:var(--text);border:1px solid var(--border);padding:10px 14px;border-radius:12px;cursor:pointer}
 .ghost.success{border-color:#34d399}
