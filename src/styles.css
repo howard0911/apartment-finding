@@ -33,6 +33,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display'
 [data-theme='light'] .theme-option.active{background:#0f172a;color:#f8fafc}
 [data-theme='dark'] .theme-option.active{background:#3a3a3a;color:#f8fafc}
 .hero-center{display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:14px;text-align:center}
+.hero-center p{font-size:17px;line-height:1.5;max-width:56ch;margin:0}
 .start-btn{padding:12px 22px;font-size:16px;border-radius:14px}
 .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 14px 35px rgba(0,0,0,0.08);border:1px solid var(--border);transition:background 0.3s ease,color 0.3s ease,border 0.3s ease}
 .card.neon{background:var(--card);border:1px solid var(--border)}
