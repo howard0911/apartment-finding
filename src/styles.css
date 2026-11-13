@@ -19,6 +19,7 @@
   --text:#f8fafc;
 }
 *{box-sizing:border-box}
+button,input,select,textarea{font:inherit}
 body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Segoe UI',system-ui,sans-serif;margin:0;background:var(--bg);color:var(--text);transition:background 0.3s ease,color 0.3s ease}
 .container{max-width:1200px;margin:24px auto;padding:16px}
 .hero{background:var(--card);border-radius:18px;padding:18px;box-shadow:0 16px 50px rgba(0,0,0,0.08);border:1px solid var(--border)}
