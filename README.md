@@ -1,6 +1,6 @@
 # Apartment Hunting Assistant — Web
 
-React + Vite + TypeScript prototype with a card-by-card survey and Tinder-style swipe results.
+Card-by-card survey and swipe results.
 
 ## Workflow in the app
 - Cold survey: card-by-card experience in `src/App.tsx` + `src/components/QuestionCard.tsx`; one question per page.
