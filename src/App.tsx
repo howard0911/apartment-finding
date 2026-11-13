@@ -111,7 +111,7 @@ export default function App() {
       {stage === 'survey' && (
         <div className="survey-fullscreen">
           <div className="step-nav">
-            <button className="link-btn" onClick={() => { setStage('intro'); setSurveyStep(0) }}>Find Your Next Home</button>
+            <button className="link-btn" onClick={() => { setStage('intro'); setSurveyStep(0) }}>← Start over</button>
             <div className="step-dots large">
               {steps.map((_, i) => (
                 <span key={i} className={`dot ${i === surveyStep ? 'dot-active' : ''}`} />
