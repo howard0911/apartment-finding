@@ -143,7 +143,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-            {!loading && <div className="badge">{results.length} matches</div>}
+            {!loading && <div className="badge">{results.length} {results.length === 1 ? 'match' : 'matches'}</div>}
             {preferences && (
               <>
                 <SwipeDeck results={results} index={deckIndex} onLike={handleLike} onSkip={handleSkip} onView={(ap) => setSelected(ap)} />
