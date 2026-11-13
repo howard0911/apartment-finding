@@ -106,7 +106,7 @@ export default function ApartmentDetail({ apartment, onClose, preferences }: { a
               ))}
             </div>
             <div style={{ marginTop: 12 }}>
-              <h4>Reviews (Groq summarized)</h4>
+              <h4>What residents say</h4>
               {reviewLoading && <div className="muted">Summarizing...</div>}
               {!reviewLoading && reviewSummary && (
                 <div>

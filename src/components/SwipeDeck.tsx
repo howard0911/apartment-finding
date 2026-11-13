@@ -31,9 +31,6 @@ export default function SwipeDeck({
         <button className="ghost" onClick={() => onView(current)}>👀 Details</button>
         <button className="ghost success" onClick={() => onLike(current)}>👍 Like</button>
       </div>
-      <div className="muted small" style={{ textAlign: 'center' }}>
-        Tinder-style swipe: left = skip, right = like. Buttons simulate the gesture for now.
-      </div>
     </div>
   )
 }
