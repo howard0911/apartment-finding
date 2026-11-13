@@ -15,7 +15,7 @@ export default function SwipeDeck({
   onSkip: (ap: Apartment) => void
   onView: (ap: Apartment) => void
 }) {
-  if (!results.length) return <div className="muted">No matches yet. Adjust filters.</div>
+  if (!results.length) return null
   const current = results[index] ?? results[results.length - 1]
   const progress = Math.min(1, (index + 1) / results.length)
   return (
