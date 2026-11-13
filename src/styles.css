@@ -81,6 +81,7 @@ input, select{padding:10px;border-radius:12px;border:1px solid var(--border);bac
 .risk-pill{background:#fef2f2;color:#9f1239;border:1px solid #fecdd3;padding:6px 8px;border-radius:8px;font-size:13px}
 [data-theme='dark'] .risk-pill{background:#2b1b1b;color:#fecdd3;border:1px solid #fca5a5}
 .layout-grid .results-card{position:relative}
+.results-card h2{white-space:nowrap}
 .step-dots{display:flex;gap:6px;margin:8px 0}
 .step-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;width:100%;max-width:760px}
 .step-dots.large{justify-content:center;margin-bottom:12px}
