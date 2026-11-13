@@ -1,9 +1,9 @@
+// Must load first: services read process.env at import time.
+import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 import searchRouter from './routes/search'
-
-dotenv.config()
+import apartmentsRouter from './routes/apartments'
 
 const app = express()
 
@@ -15,6 +15,7 @@ app.get('/api/health', (_req, res) => {
 })
 
 app.use('/api', searchRouter)
+app.use('/api', apartmentsRouter)
 
 const PORT = process.env.PORT || 4000
 app.listen(PORT, () => {

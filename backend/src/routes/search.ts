@@ -1,27 +1,26 @@
 import { Router } from 'express'
-import { UserPreferences } from '../types'
+import { SearchRequest, SearchResponse } from '../types'
 import { getBaseListings } from '../services/listingService'
 import { enrichWithCommute } from '../services/commuteService'
-import { enrichWithSafety } from '../services/safetyService'
-import { enrichWithVideos } from '../services/videoService'
-import { enrichWithReviews } from '../services/reviewService'
-import { scoreApartments } from '../services/scoringService'
+import { rankApartments } from '../services/scoringService'
 
 const router = Router()
 
 router.post('/search', async (req, res) => {
+  const body = req.body as Partial<SearchRequest> | undefined
+  if (typeof body?.query !== 'string' || typeof body.preferences !== 'object' || body.preferences === null) {
+    res.status(400).json({ error: 'Request body must be { query: string, preferences: UserPreferences }' })
+    return
+  }
+  const { query, preferences } = body
   try {
-    const prefs = req.body as UserPreferences
-    const base = await getBaseListings(prefs)
-    const withCommute = await enrichWithCommute(base, prefs)
-    const withSafety = await enrichWithSafety(withCommute)
-    const withVideos = await enrichWithVideos(withSafety)
-    const withReviews = await enrichWithReviews(withVideos, prefs)
-    const scored = scoreApartments(withReviews, prefs)
-    res.json({ preferences: prefs, results: scored })
+    const base = await getBaseListings()
+    const withCommute = await enrichWithCommute(base, preferences)
+    const response: SearchResponse = { results: rankApartments(withCommute, preferences, query) }
+    res.json(response)
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error('search error', err)
+    console.error('search error', { query, error: err instanceof Error ? err.message : String(err) })
     res.status(500).json({ error: 'Internal Server Error' })
   }
 })

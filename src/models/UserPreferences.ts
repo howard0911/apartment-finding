@@ -1,26 +1,6 @@
-export interface UserPreferences {
-  maxPrice?: number
-  minPrice?: number
-  preferredCities: string[]
-  preferredNeighborhoods: string[]
-  minBedrooms?: number
-  maxBedrooms?: number
-  minBathrooms?: number
-  maxBathrooms?: number
-  minSquareFeet?: number
-  maxSquareFeet?: number
-  preferredPropertyTypes: string[]
-  requiredAmenities: string[]
-  preferredPetPolicy?: string
-  maxCommuteTime?: number
-  commuteMode?: 'Drive' | 'Transit' | 'Bike' | 'Walk'
-  preferredMoveInDate?: string
-  mustHaveFeatures: string[]
-  dealBreakers: string[]
-  additionalPoints: string[]
-  // Lightweight state for stepwise survey UI
-  currentStep?: number
-}
+import type { UserPreferences } from '../../backend/src/types'
+
+export type { UserPreferences }
 
 export const samplePreferences: UserPreferences = {
   maxPrice: undefined,

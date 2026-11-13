@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { performAISearch } from './services/AISearchService'
-import { Apartment, sampleData } from './models/Apartment'
+import { searchApartments } from './services/api'
+import { Apartment } from './models/Apartment'
 import ApartmentRow from './components/ApartmentRow'
 import ApartmentDetail from './components/ApartmentDetail'
 import { UserPreferences, samplePreferences } from './models/UserPreferences'
 import QuestionCard from './components/QuestionCard'
 import SwipeDeck from './components/SwipeDeck'
-import { GeocodingService, GeocodeResult } from './services/GeocodingService'
 
 export default function App() {
   const [query, setQuery] = useState('')
@@ -15,6 +14,7 @@ export default function App() {
   const [surveyStep, setSurveyStep] = useState(0)
   const [results, setResults] = useState<Apartment[]>([])
   const [loading, setLoading] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Apartment | null>(null)
   const [liked, setLiked] = useState<Apartment[]>([])
   const [skipped, setSkipped] = useState<Apartment[]>([])
@@ -25,7 +25,6 @@ export default function App() {
   const [customAvoid, setCustomAvoid] = useState('')
   const [locationInput, setLocationInput] = useState('')
   const [commuteAddress, setCommuteAddress] = useState('')
-  const [currentLocation, setCurrentLocation] = useState<GeocodeResult | null>(null)
 
   const steps = useMemo(
     () =>
@@ -48,10 +47,17 @@ export default function App() {
 
   async function runSearch(prefs: UserPreferences, text: string) {
     setLoading(true)
-    const res = await performAISearch(text, prefs)
-    setResults(res)
-    setDeckIndex(0)
-    setLoading(false)
+    setSearchError(null)
+    try {
+      const res = await searchApartments({ query: text, preferences: prefs })
+      setResults(res)
+      setDeckIndex(0)
+    } catch (err) {
+      console.error('search failed', err)
+      setSearchError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleNext() {
@@ -79,14 +85,6 @@ export default function App() {
   function handleSkip(ap: Apartment) {
     setSkipped((prev) => [...prev, ap])
     setDeckIndex((i) => Math.min(results.length - 1, i + 1))
-  }
-
-  function loadSample() {
-    setDraft(samplePreferences)
-    setPreferences(samplePreferences)
-    setResults(sampleData)
-    setDeckIndex(0)
-    setStage('results')
   }
 
   return (
@@ -155,7 +153,8 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-                {!loading && results.length === 0 && <div className="muted">No matches yet. Adjust filters.</div>}
+                {searchError && <div className="muted" role="alert">Search failed: {searchError}</div>}
+                {!loading && !searchError && results.length === 0 && <div className="muted">No matches yet. Adjust filters.</div>}
                 {loading && <div className="muted">Scanning listings...</div>}
               </>
             )}
@@ -163,7 +162,7 @@ export default function App() {
         </div>
       )}
 
-      {selected && <ApartmentDetail apartment={selected} onClose={() => setSelected(null)} preferences={preferences} />}
+      {selected && <ApartmentDetail apartment={selected} priorities={preferences?.additionalPoints ?? []} onClose={() => setSelected(null)} />}
     </div>
   )
 }
@@ -214,12 +213,6 @@ function buildSteps(draft: UserPreferences, setDraft: (p: UserPreferences) => vo
                 if (!navigator.geolocation) return
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                   const { latitude, longitude } = pos.coords
-                  const geo: GeocodeResult = {
-                    lat: latitude,
-                    lng: longitude,
-                    formattedAddress: 'Current Location',
-                    city: 'Current Location'
-                  }
                   setDraft({ ...draft, preferredCities: ['Current Location'], preferredNeighborhoods: ['Current Location'], currentLocationLatLng: { lat: latitude, lng: longitude } })
                   extras.setLocationInput('Current Location')
                 })
@@ -307,7 +300,7 @@ function buildSteps(draft: UserPreferences, setDraft: (p: UserPreferences) => vo
             value={extras.commuteAddress}
             onChange={(e) => {
               extras.setCommuteAddress(e.target.value)
-              setDraft({ ...draft, preferredNeighborhoods: e.target.value ? [e.target.value] : [], maxCommuteTime: draft.maxCommuteTime, commuteMode: draft.commuteMode })
+              setDraft({ ...draft, commuteDestination: e.target.value })
             }}
             placeholder="Work/School address"
           />

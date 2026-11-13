@@ -1,92 +1,74 @@
-import { Apartment, UserPreferences } from '../types'
 import axios from 'axios'
+import { Apartment, ReviewSummary } from '../types'
+import { withRetry } from './http'
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions'
+const GROQ_MODEL = 'openai/gpt-oss-20b'
+/** gpt-oss spends part of this budget on reasoning before the JSON answer. */
+const MAX_COMPLETION_TOKENS = 1024
 
-export async function enrichWithReviews(apartments: Apartment[], prefs: UserPreferences): Promise<Apartment[]> {
-  return Promise.all(
-    apartments.map(async (apt) => {
-      try {
-        const rawReviews = await fetchRawReviews(apt)
-        const summary = await summarizeReviews(rawReviews, prefs)
-        return { ...apt, reviewSummary: summary }
-      } catch {
-        return {
-          ...apt,
-          reviewSummary: {
-            pros: ['管理回應快 (mock)', '公共空間乾淨 (mock)'],
-            cons: ['週末街道較吵 (mock)'],
-            personalizedNote: '根據你的優先順序提供的預設摘要（API 待串）。'
-          }
-        }
-      }
-    })
-  )
+const SYSTEM_PROMPT =
+  'You summarize apartment reviews for a renter. Reply with a JSON object only, shaped as ' +
+  '{"pros": string[], "cons": string[], "personalizedNote": string}. ' +
+  'Use short English phrases taken from the reviews. personalizedNote is one sentence relating the reviews to the renter priorities.'
+
+type ChatCompletionResponse = {
+  choices: { message: { content: string | null } }[]
 }
 
-async function fetchRawReviews(_apt: Apartment) {
-  // TODO: 串接 Google Places / Yelp Reviews，回傳原始評論文本/分數
+/** Process-lifetime cache keyed by apartment and priorities, so each summary is generated once. */
+const summaryCache = new Map<string, ReviewSummary>()
+
+/** Summary of one apartment's reviews; null when GROQ_API_KEY is not configured. */
+export async function summarizeApartmentReviews(apt: Apartment, priorities: string[]): Promise<ReviewSummary | null> {
+  const apiKey = process.env.GROQ_API_KEY
+  if (!apiKey) {
+    console.warn('review summary skipped', { reason: 'GROQ_API_KEY is not set', apartmentId: apt.id })
+    return null
+  }
+  const cacheKey = `${apt.id}|${priorities.join('|')}`
+  const cached = summaryCache.get(cacheKey)
+  if (cached) return cached
+  const summary = await requestSummary(fetchRawReviews(apt), priorities, apiKey)
+  summaryCache.set(cacheKey, summary)
+  return summary
+}
+
+function fetchRawReviews(_apt: Apartment): string[] {
+  // TODO: fetch real reviews from Google Places / Yelp (Phase 5)
   return ['Loved the staff response time.', 'Some street noise on weekends.']
 }
 
-async function summarizeReviews(reviews: string[], prefs: UserPreferences) {
-  const prompt = `總結以下公寓評論，列出優點/缺點，並根據使用者優先順序(${prefs.priorities.join(',')})給一句個人化建議：\n${reviews.join('\n')}`
-  if (GROQ_API_KEY) {
-    return llmCall('groq', prompt)
+async function requestSummary(reviews: string[], priorities: string[], apiKey: string): Promise<ReviewSummary> {
+  const body = {
+    model: GROQ_MODEL,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: `Renter priorities (most important first): ${priorities.join(', ') || 'none'}\nReviews:\n${reviews.map((r) => `- ${r}`).join('\n')}` }
+    ],
+    response_format: { type: 'json_object' },
+    reasoning_effort: 'low',
+    max_completion_tokens: MAX_COMPLETION_TOKENS
   }
-  if (OPENAI_API_KEY) {
-    return llmCall('openai', prompt)
-  }
-  return {
-    pros: ['管理友善 (mock)'],
-    cons: ['周遭偶有噪音 (mock)'],
-    personalizedNote: 'LLM 金鑰未設置，使用預設摘要。'
-  }
+  const data = await withRetry('groq review summary', { model: GROQ_MODEL, reviews: reviews.length }, async () => {
+    const res = await axios.post<ChatCompletionResponse>(GROQ_CHAT_URL, body, { headers: { Authorization: `Bearer ${apiKey}` } })
+    return res.data
+  })
+  const content = data.choices[0]?.message.content ?? ''
+  return parseSummary(content)
 }
 
-async function llmCall(provider: 'groq' | 'openai', prompt: string) {
+/** Parses the model's JSON answer; throws with the raw content when the shape is wrong. */
+function parseSummary(content: string): ReviewSummary {
+  let parsed: { pros?: string[]; cons?: string[]; personalizedNote?: string }
   try {
-    if (provider === 'groq') {
-      const { data } = await axios.post(
-        'https://api.groq.com/openai/v1/chat/completions',
-        { model: 'mixtral-8x7b-32768', messages: [{ role: 'user', content: prompt }] },
-        { headers: { Authorization: `Bearer ${GROQ_API_KEY}` } }
-      )
-      const text = data?.choices?.[0]?.message?.content || ''
-      return parseLLMText(text)
-    }
-    const { data } = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      { model: 'gpt-3.5-turbo', messages: [{ role: 'user', content: prompt }] },
-      { headers: { Authorization: `Bearer ${OPENAI_API_KEY}` } }
-    )
-    const text = data?.choices?.[0]?.message?.content || ''
-    return parseLLMText(text)
-  } catch {
-    return {
-      pros: ['總結失敗 (fallback)'],
-      cons: [],
-      personalizedNote: 'LLM 呼叫失敗，請稍後重試。'
-    }
+    parsed = JSON.parse(content)
+  } catch (err) {
+    throw new Error(`Groq review summary is not valid JSON: ${err instanceof Error ? err.message : String(err)} content=${content}`)
   }
-}
-
-function parseLLMText(text: string) {
-  const pros = []
-  const cons = []
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
-  for (const line of lines) {
-    if (/pros?:/i.test(line)) continue
-    if (/cons?:/i.test(line)) continue
-    if (line.startsWith('-') || line.startsWith('•')) {
-      if (line.toLowerCase().includes('缺') || line.toLowerCase().includes('con')) cons.push(line.replace(/^[-•]\s*/, ''))
-      else pros.push(line.replace(/^[-•]\s*/, ''))
-    }
+  const isStringList = (v: string[] | undefined): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string')
+  if (!isStringList(parsed.pros) || !isStringList(parsed.cons) || typeof parsed.personalizedNote !== 'string') {
+    throw new Error(`Groq review summary has the wrong shape: content=${content}`)
   }
-  return {
-    pros: pros.length ? pros : ['位置方便 (LLM 解析 fallback)'],
-    cons: cons.length ? cons : ['需注意噪音 (LLM 解析 fallback)'],
-    personalizedNote: '由 LLM 摘要生成（可調整提示詞與格式）。'
-  }
+  return { pros: parsed.pros, cons: parsed.cons, personalizedNote: parsed.personalizedNote }
 }

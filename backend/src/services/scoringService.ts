@@ -1,61 +1,86 @@
 import { Apartment, UserPreferences } from '../types'
 
-export function scoreApartments(apartments: Apartment[], prefs: UserPreferences): Apartment[] {
+const DAY_MS = 24 * 3600 * 1000
+
+/** Drops apartments that fail hard filters, scores the rest, and sorts best first. */
+export function rankApartments(apartments: Apartment[], preferences: UserPreferences, query: string): Apartment[] {
+  const search = query.trim().toLowerCase()
   return apartments
-    .map((apt) => {
-      const priceScore = calcPriceScore(apt, prefs)
-      const commuteScore = calcCommuteScore(apt, prefs)
-      const safetyScore = (apt.safetyScore ?? 50) / 10
-      const amenitiesScore = calcAmenitiesScore(apt, prefs)
-      const weights = weightsFromPriorities(prefs.priorities)
-      const score =
-        priceScore * weights.price +
-        commuteScore * weights.commute +
-        safetyScore * weights.safety +
-        amenitiesScore * weights.amenities
-      return { ...apt, score }
-    })
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    .filter((ap) => passesBasicFilters(ap, preferences))
+    .map((ap) => ({
+      ...ap,
+      priorityScore: scoreApartment(ap, preferences, search),
+      commuteScore: scoreCommute(ap, preferences)
+    }))
+    .sort((a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0))
 }
 
-function calcPriceScore(apt: Apartment, prefs: UserPreferences) {
-  const rent = apt.units[0]?.rent ?? 0
-  if (!prefs.budgetMin || !prefs.budgetMax) return 5
-  if (rent < prefs.budgetMin || rent > prefs.budgetMax) return 0
-  const mid = (prefs.budgetMin + prefs.budgetMax) / 2
-  const distance = Math.abs(rent - mid)
-  const span = prefs.budgetMax - prefs.budgetMin || 1
-  const normalized = Math.max(0, 1 - distance / span)
-  return normalized * 10
-}
-
-function calcCommuteScore(apt: Apartment, prefs: UserPreferences) {
-  if (!prefs.commuteDestinations?.length || !apt.commuteInfo?.length) return 5
-  let best = 0
-  for (const dest of prefs.commuteDestinations) {
-    const match = apt.commuteInfo.find((c) => c.destinationLabel === dest.label && c.mode === dest.mode)
-    if (!match) continue
-    if (dest.maxMinutes && match.durationMinutes <= dest.maxMinutes) best = Math.max(best, 10)
-    else if (match.durationMinutes) best = Math.max(best, Math.max(0, 10 - (match.durationMinutes - (dest.maxMinutes || 0)) / 5))
+function passesBasicFilters(apartment: Apartment, preferences: UserPreferences): boolean {
+  if (preferences.maxPrice !== undefined && apartment.price > preferences.maxPrice) return false
+  if (preferences.minPrice !== undefined && apartment.price < preferences.minPrice) return false
+  if (preferences.preferredMoveInDate && apartment.availableDate) {
+    const pref = new Date(preferences.preferredMoveInDate).getTime()
+    const avail = new Date(apartment.availableDate).getTime()
+    if (avail - pref > 60 * DAY_MS) return false
   }
-  return best || 5
+  if (preferences.preferredCities.length && !preferences.preferredCities.map((c) => c.toLowerCase()).includes(apartment.city.toLowerCase())) {
+    return false
+  }
+  if (preferences.preferredPropertyTypes.length && !preferences.preferredPropertyTypes.includes(apartment.propertyType)) return false
+  if (preferences.dealBreakers.length) {
+    const text = `${apartment.title} ${apartment.description} ${apartment.neighborhoodNote ?? ''} ${apartment.amenities.join(' ')}`.toLowerCase()
+    if (preferences.dealBreakers.some((d) => text.includes(d.toLowerCase()))) return false
+  }
+  if (preferences.maxCommuteTime && preferences.commuteMode && apartment.commuteOptions) {
+    const best = apartment.commuteOptions.find((c) => c.mode === preferences.commuteMode)
+    if (best && best.timeMinutes > preferences.maxCommuteTime) return false
+  }
+  return true
 }
 
-function calcAmenitiesScore(apt: Apartment, prefs: UserPreferences) {
-  const amenities = apt.amenities?.map((a) => a.toLowerCase()) || []
-  const mustHaveHits = (prefs.mustHave || []).filter((m) => amenities.includes(m.toLowerCase())).length
-  const mustNotHits = (prefs.mustNotHave || []).filter((m) => amenities.includes(m.toLowerCase())).length
-  return Math.max(0, 5 + mustHaveHits * 2 - mustNotHits * 3)
+function scoreApartment(apartment: Apartment, preferences: UserPreferences, search: string): number {
+  let score = 0
+  if (preferences.preferredCities.includes(apartment.city)) score += 12
+  if (preferences.preferredNeighborhoods.some((n) => (apartment.neighborhood ?? '').toLowerCase().includes(n.toLowerCase()))) score += 8
+  if (preferences.preferredPropertyTypes.includes(apartment.propertyType)) score += 10
+  if (preferences.preferredPetPolicy && apartment.petPolicy === preferences.preferredPetPolicy) score += 6
+  const matchingAmenities = apartment.amenities.filter((m) => preferences.requiredAmenities.includes(m))
+  score += matchingAmenities.length * 5
+  if (preferences.mustHaveFeatures.length) {
+    const text = `${apartment.title} ${apartment.description}`.toLowerCase()
+    preferences.mustHaveFeatures.forEach((f) => {
+      if (text.includes(f.toLowerCase())) score += 4
+    })
+  }
+  if (preferences.maxCommuteTime && apartment.commuteOptions?.length) {
+    const best = preferences.commuteMode
+      ? apartment.commuteOptions.find((c) => c.mode === preferences.commuteMode)
+      : apartment.commuteOptions[0]
+    if (best && best.timeMinutes <= preferences.maxCommuteTime) {
+      score += 8
+      if (best.timeMinutes <= preferences.maxCommuteTime / 2) score += 4
+    }
+  }
+  if (preferences.additionalPoints.length) {
+    const combined = `${apartment.title} ${apartment.description} ${apartment.neighborhoodNote ?? ''}`.toLowerCase()
+    preferences.additionalPoints.forEach((p, idx) => {
+      if (combined.includes(p.toLowerCase())) score += Math.max(3, 8 - idx)
+    })
+  }
+  if (search.length) {
+    const text = `${apartment.title} ${apartment.description} ${apartment.address}`.toLowerCase()
+    if (text.includes(search)) score += 10
+  }
+  if (apartment.rating) score += apartment.rating
+  score += scoreCommute(apartment, preferences)
+  return score
 }
 
-function weightsFromPriorities(priorities: string[]) {
-  const base = { price: 1, commute: 1, safety: 1, amenities: 1 }
-  priorities.forEach((p, idx) => {
-    const weight = Math.max(1, 2 - idx * 0.2)
-    if (p.toLowerCase().includes('price')) base.price = weight
-    if (p.toLowerCase().includes('commute')) base.commute = weight
-    if (p.toLowerCase().includes('safety')) base.safety = weight
-    if (p.toLowerCase().includes('amenities')) base.amenities = weight
-  })
-  return base
+function scoreCommute(apartment: Apartment, preferences: UserPreferences): number {
+  if (!preferences.maxCommuteTime || !preferences.commuteMode) return 0
+  const time = apartment.commuteTimeByMode?.[preferences.commuteMode]
+  if (time === undefined) return 0
+  if (time <= preferences.maxCommuteTime) return 10
+  if (time <= preferences.maxCommuteTime * 1.5) return 5
+  return -5
 }
