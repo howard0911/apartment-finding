@@ -102,3 +102,6 @@ input, select{padding:10px;border-radius:12px;border:1px solid var(--border);bac
   .swipe-actions{flex-direction:column}
   .hero{padding:16px}
 }
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:0.01ms !important;animation-duration:0.01ms !important}
+}
